@@ -196,6 +196,23 @@ function renderStopSheet(){
 }
 function pickFiles(cb){const f=$("#fileIn");f.value="";f.onchange=()=>{const list=[...f.files];if(list.length)cb(list)};f.click()}
 
+
+/* coordinates typed or pasted by hand: decimal, degrees-minutes-seconds or a Google Maps link */
+function parseCoords(txt){
+  if(!txt)return null;let t=txt.trim();
+  const ok=(a,b)=>isFinite(a)&&isFinite(b)&&Math.abs(a)<=90&&Math.abs(b)<=180&&!(a===0&&b===0)?[a,b]:null;
+  let m=t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||t.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)||t.match(/[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?)(?:,|%2C)\s*(-?\d+(?:\.\d+)?)/i);
+  if(m)return ok(+m[1],+m[2]);
+  const dms=[...t.matchAll(/(\d+(?:[.,]\d+)?)\s*[°º]\s*(?:(\d+(?:[.,]\d+)?)\s*['’′]\s*)?(?:(\d+(?:[.,]\d+)?)\s*(?:["”″]|'')\s*)?([NSEWO])/gi)];
+  if(dms.length===2){const v=dms.map(x=>{const n=k=>x[k]?parseFloat(x[k].replace(",",".")):0;let d=n(1)+n(2)/60+n(3)/3600;if(/[SWO]/i.test(x[4]))d=-d;return{d,lat:/[NS]/i.test(x[4])}});
+    const la=v.find(x=>x.lat),lo=v.find(x=>!x.lat);return la&&lo?ok(la.d,lo.d):null}
+  if(/;/.test(t))t=t.replace(/,/g,".").replace(/;/g," ");
+  else if((t.match(/,/g)||[]).length===3)t=t.replace(/(\d),(\d+)\s*,\s*(-?\d+),(\d)/,"$1.$2 $3.$4");
+  m=t.replace(/,/g," ").trim().match(/^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)$/);
+  return m?ok(+m[1],+m[2]):null;
+}
+window.__parseCoords=parseCoords;
+
 /* ---------- stop form ---------- */
 function openForm(s){
   S.form=s?{id:s.id,nombre:s.nombre,fecha:s.fecha||"",hora:(s.hora||"").slice(0,5),nota:s.nota||"",lat:s.lat,lng:s.lng,files:[]}
@@ -212,7 +229,10 @@ function renderForm(){
     <label>Qué hemos hecho<textarea id="fNote" maxlength="2000" placeholder="Paramos a echar gasolina y…">${esc(F.nota)}</textarea></label>
     <div class="where"><div class="mono">Dónde</div>
       <div class="coords" id="fCoords">${F.lat!=null?`📍 ${F.lat.toFixed(4)}, ${F.lng.toFixed(4)}`:"Todavía sin marcar"}</div>
-      <div class="row"><button class="btn solid" id="fGeo" type="button">Usar mi ubicación</button><button class="btn" id="fPick" type="button">Elegir en el mapa</button></div></div>
+      <div class="row"><button class="btn solid" id="fGeo" type="button">Usar mi ubicación</button><button class="btn" id="fPick" type="button">Elegir en el mapa</button></div>
+      <label>O escribe las coordenadas<input id="fCoordIn" inputmode="text" autocomplete="off" placeholder="43.7384, 7.4246"></label>
+      <div class="row"><button class="btn" id="fCoordOk" type="button">Usar estas coordenadas</button></div>
+      <div class="status">Sirven números como 43.7384, 7.4246, el formato 43°44'18"N 7°25'28"E o un enlace de Google Maps.</div></div>
     ${F.id?"":`<label>Fotos (opcional)<input id="fFiles" type="file" accept="image/*" multiple></label><div class="status" id="fFilesN">${F.files.length?F.files.length+" fotos elegidas":""}</div>`}
     <div class="status" id="fStatus"></div>
     <div class="row"><button class="btn wine" id="fSave" type="submit">Guardar parada</button><button class="btn" id="fCancel" type="button">Cancelar</button></div>
@@ -227,6 +247,11 @@ function renderForm(){
       {enableHighAccuracy:true,timeout:15000,maximumAge:60000});
   };
   $("#fPick").onclick=()=>{readForm();startPick()};
+  const applyCoords=()=>{const c=parseCoords($("#fCoordIn").value);
+    if(!c){toast("No entiendo esas coordenadas. Prueba con algo como 43.7384, 7.4246");return}
+    F.lat=+c[0].toFixed(6);F.lng=+c[1].toFixed(6);$("#fCoords").textContent=`📍 ${F.lat.toFixed(5)}, ${F.lng.toFixed(5)}`;toast("Ubicación puesta")};
+  $("#fCoordOk").onclick=applyCoords;
+  $("#fCoordIn").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();applyCoords()}};
   if($("#fFiles"))$("#fFiles").onchange=e=>{F.files=[...e.target.files];$("#fFilesN").textContent=F.files.length?F.files.length+" fotos elegidas":""};
   $("#fStop").onsubmit=async e=>{e.preventDefault();readForm();
     if(!F.nombre.trim()){$("#fName").focus();return}
