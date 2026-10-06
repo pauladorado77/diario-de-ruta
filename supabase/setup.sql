@@ -71,3 +71,7 @@ alter publication supabase_realtime add table public.paradas, public.fotos, publ
 
 -- Viajeros (cambia o añade emails):
 insert into public.editores (email) values ('tu-email@ejemplo.com') on conflict do nothing;
+
+-- Necesario para poder borrar fotos del almacenamiento
+create policy "listar fotos" on storage.objects for select to authenticated
+  using (bucket_id = 'fotos' and public.es_editor());
