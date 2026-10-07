@@ -131,7 +131,7 @@ function renderNow(){
   const el=$("#now");const s=lastStop();
   if(!S.loaded)return;
   if(!s){
-    el.innerHTML=`<div class="pol"><img src="img/familia.jpg?v=3" alt=""></div><div style="min-width:0"><div class="mono">Todavía en casa</div><h3>A Coruña</h3><p>Salimos el viernes 10 de octubre. ¡Volved por aquí!</p></div>`;
+    el.innerHTML=`<div class="pol"><img src="img/familia.jpg?v=3" alt=""></div><div style="min-width:0"><div class="mono">Todavía en casa</div><h3>A Coruña</h3><p>Salimos el sábado 10 de octubre. ¡Volved por aquí!</p></div>`;
     return;
   }
   const ph=photosOf(s.id);const last=ph[ph.length-1];const nc=commentsOfStop(s.id).length;
