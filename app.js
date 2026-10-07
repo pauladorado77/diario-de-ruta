@@ -61,14 +61,13 @@ map.attributionControl.setPrefix(false).addAttribution("Fronteras: Natural Earth
 const planPts=ROUTE.map(k=>[P[k][1],P[k][2]]);
 map.fitBounds(planPts,{padding:[30,30]});
 const narrow=map.getSize().x<640;
-if(narrow)map.setView([44.4,4.6],Math.max(map.getZoom()+.75,5));
-map.setMaxBounds([[35.5,-11.5],[52,20]]);
+if(narrow)map.setView([44.4,4.6],Math.max(map.getZoom()+.75,5),{animate:false});
+map.setMaxBounds([[35.5,-16],[52,20]]);
 const TRIP=new Set(["France","Monaco","Italy"]);
 fetch("geo.json").then(r=>r.json()).then(g=>{
   L.geoJSON(g,{interactive:false,style:f=>({color:css("--border"),weight:.8,fillColor:TRIP.has(f.properties.n)?css("--land-trip"):css("--land"),fillOpacity:1})}).addTo(map).bringToBack();
 }).catch(()=>{});
 [["Francia",46.4,2.6],["Italia",42.6,12.9],["España",40.6,-4.2]].forEach(([n,a,o])=>L.marker([a,o],{interactive:false,keyboard:false,icon:L.divIcon({className:"",html:`<div class="country">${n}</div>`,iconSize:[0,0]})}).addTo(map));
-L.polyline(planPts,{color:css("--ink-soft"),weight:1.6,dashArray:"2 7",lineCap:"round",interactive:false}).addTo(map);
 const seen=new Set();
 ROUTE.forEach(k=>{if(seen.has(k))return;seen.add(k);
   L.marker([P[k][1],P[k][2]],{interactive:false,keyboard:false,icon:L.divIcon({className:"",html:`<div class="dot future"></div>`,iconSize:[10,10],iconAnchor:[5,5]})}).addTo(map);
@@ -76,7 +75,7 @@ ROUTE.forEach(k=>{if(seen.has(k))return;seen.add(k);
 });
 const trail=L.polyline([],{color:css("--rust"),weight:3.5,lineCap:"round",lineJoin:"round",interactive:false}).addTo(map);
 const stopLayer=L.layerGroup().addTo(map);
-const fam=L.marker([P.cor[1],P.cor[2]],{icon:L.divIcon({className:"",html:`<div class="fam idle" id="fam" title="¡Aquí estamos!"><div class="body"><div class="tail"></div><img src="img/familia.jpg" alt="Nuestra familia"></div><div class="shadow"></div></div>`,iconSize:[72,86],iconAnchor:[36,86]}),zIndexOffset:3000,keyboard:false}).addTo(map);
+const fam=L.marker([P.cor[1],P.cor[2]],{icon:L.divIcon({className:"",html:`<div class="fam idle" id="fam" title="¡Aquí estamos!"><div class="body"><div class="tail"></div><img src="img/familia.jpg?v=3" alt="Nuestra familia"></div><div class="shadow"></div></div>`,iconSize:[72,86],iconAnchor:[36,86]}),zIndexOffset:3000,keyboard:false}).addTo(map);
 fam.on("click",()=>{const l=lastStop();if(l)openStop(l.id)});
 let pickMarker=null;
 
@@ -99,7 +98,8 @@ function animate(force){
   const first=lastAnimKey==="";lastAnimKey=key;
   cancelAnimationFrame(raf);
   const famEl=()=>document.getElementById("fam");
-  if(path.length<2){fam.setLatLng(path[0]);trail.setLatLngs([]);return}
+  const keepInView=pos=>{map.invalidateSize();if(!map.getBounds().pad(-0.08).contains(pos))map.panTo(pos,{animate:true})};
+  if(path.length<2){fam.setLatLng(path[0]);trail.setLatLngs([]);keepInView(path[0]);return}
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
   // first load or replay: whole journey; a new stop: only the last leg
   const from=(first||force)?0:Math.max(0,path.length-2);
@@ -113,7 +113,7 @@ function animate(force){
     const pos=[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k];
     fam.setLatLng(pos);trail.setLatLngs(path.slice(0,from+i+1).concat([pos]));
     const v=famEl();if(v){v.classList.toggle("moving",f<1);v.classList.toggle("idle",f>=1)}
-    if(f<1)raf=requestAnimationFrame(step);
+    if(f<1)raf=requestAnimationFrame(step);else keepInView(pos);
   };
   raf=requestAnimationFrame(step);
 }
@@ -131,12 +131,12 @@ function renderNow(){
   const el=$("#now");const s=lastStop();
   if(!S.loaded)return;
   if(!s){
-    el.innerHTML=`<div class="pol"><img src="img/familia.jpg" alt=""></div><div style="min-width:0"><div class="mono">Todavía en casa</div><h3>A Coruña</h3><p>Salimos el viernes 10 de octubre. ¡Volved por aquí!</p></div>`;
+    el.innerHTML=`<div class="pol"><img src="img/familia.jpg?v=3" alt=""></div><div style="min-width:0"><div class="mono">Todavía en casa</div><h3>A Coruña</h3><p>Salimos el viernes 10 de octubre. ¡Volved por aquí!</p></div>`;
     return;
   }
   const ph=photosOf(s.id);const last=ph[ph.length-1];const nc=commentsOfStop(s.id).length;
   const when=ago(last?last.creado:s.creado);
-  el.innerHTML=`<div class="pol">${last?thumbTag(last,s.nombre):`<img src="img/familia.jpg" alt="">`}</div>
+  el.innerHTML=`<div class="pol">${last?thumbTag(last,s.nombre):`<img src="img/familia.jpg?v=3" alt="">`}</div>
     <div style="min-width:0"><div class="mono">Última publicación${dayN(s.fecha)>=1&&dayN(s.fecha)<=9?" · Día "+dayN(s.fecha):""}</div>
     <h3>${esc(s.nombre)}</h3><p>${esc([when,ph.length?ph.length+(ph.length>1?" fotos":" foto"):null,nc?nc+(nc>1?" comentarios":" comentario"):null].filter(Boolean).join(" · "))}</p>
     <button class="btnlink" id="nowOpen" type="button">Ver la parada</button><button class="btnlink" id="replay" type="button">Ver el viaje otra vez</button></div>`;
